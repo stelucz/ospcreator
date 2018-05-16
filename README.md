@@ -1,0 +1,2 @@
+# ospcreator
+OpenStack project creator
