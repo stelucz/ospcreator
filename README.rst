@@ -29,6 +29,10 @@ for password.
 
 Actions done by script are logged into ospcreator.log log file in working directory.
 
+Arguments:
+
+* variables -- variables.yml file
+
 Optional arguments:
 
 * -doe -- Don't override keystone endpoint

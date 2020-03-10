@@ -35,28 +35,28 @@ class Network:
         self.routes = []
         self.rt_asn = None
 
-    def addroute(self, dst_network, nexthop):
+    def add_route(self, dst_network, nexthop):
         route = {'destination': dst_network, 'nexthop': nexthop}
         # route["dst_network"] = dst_network
         # route["nexthop"] = nexthop
         self.routes.append(route)
 
 
-def loadyaml(path):
+def load_yaml(path):
     try:
         with open(path) as f:
             try:
                 vars = f.read()
-                vars = yaml.load(vars)
+                vars = yaml.load(vars, Loader=yaml.FullLoader)
             except yaml.error.YAMLError as e:
                 logging.error("Processing vars yaml file failed! EXITING. \n" + str(e))
                 exit(1)
     except IOError as e:
         logging.error("Processing vars file failed! \n" + str(e))
         print("Variables file not found in working directory \n")
-        gv = raw_input("Do you want to generate sample variables file? [Y/n]: ")
+        gv = input("Do you want to generate sample variables file? [Y/n]: ")
         if gv.lower() == 'y' or gv == '':
-            generatevars(path)
+            generate_vars(path)
             print("Variables file generated in working directory. Exiting.")
             exit(0)
         else:
@@ -65,14 +65,14 @@ def loadyaml(path):
     return vars
 
 
-def parserts(rts):
+def parse_rts(rts):
     irts = []
     for irt in rts:
         irts.append(irt)
     return irts
 
 
-def parsenetworks(networks):
+def parse_networks(networks):
     ntws = []
     try:
         for network in networks:
@@ -81,13 +81,13 @@ def parsenetworks(networks):
                 if "routes" in network:
                     for route in network["routes"]:
                         if "destination" in route and "nexthop" in route:
-                            ntw.addroute(route["destination"], route["nexthop"])
+                            ntw.add_route(route["destination"], route["nexthop"])
                 if "import_rt" in network:
-                    ntw.import_rt = parserts(network["import_rt"])
+                    ntw.import_rt = parse_rts(network["import_rt"])
                 if "export_rt" in network:
-                    ntw.export_rt = parserts(network["export_rt"])
+                    ntw.export_rt = parse_rts(network["export_rt"])
                 if "rt" in network:
-                    ntw.rt = parserts(network["rt"])
+                    ntw.rt = parse_rts(network["rt"])
                 if "rt_asn" in network:
                     ntw.rt_asn = network["rt_asn"]
                 ntws.append(ntw)
@@ -98,7 +98,7 @@ def parsenetworks(networks):
         return ntws
 
 
-def parseimages(images):
+def parse_images(images):
     imgs = []
     try:
         for image in images:
@@ -109,7 +109,7 @@ def parseimages(images):
         return False
 
 
-def parseusers(users):
+def parse_users(users):
     usersl = []
     try:
         for user in users:
@@ -121,7 +121,7 @@ def parseusers(users):
     return usersl
 
 
-def loadenvvariables():
+def load_env_variables():
     keystonerc = {}
     try:
         keystonerc["username"] = os.environ['OS_USERNAME']
@@ -133,15 +133,15 @@ def loadenvvariables():
         return keystonerc
     except Exception:
         keystonerc = {}
-        logging.warning("Processing env variables failed! Skipping using keystonerc from env.")
+        logging.warning("Loading env variables failed.")
         return keystonerc
 
 
-def createproject(keystone, name, description, domain):
+def create_project(keystone, name, description, domain):
     try:
         newproject = keystone.projects.list(name=name)
         if newproject:
-            pom = raw_input("Project with this name already exists. \nDo you want to exit? [Y/n]: ")
+            pom = input("Project with this name already exists. \nDo you want to exit? [Y/n]: ")
             if pom.lower() == "y" or pom == '':
                 exit(0)
             newproject = newproject[0]
@@ -160,7 +160,7 @@ def createproject(keystone, name, description, domain):
         exit(1)
 
 
-def adduserstoproject(users, project, keystone):
+def add_users_to_project(users, project, keystone):
     for usr in users:
         try:
             role = keystone.roles.list(name=usr["role"])[0]
@@ -171,7 +171,7 @@ def adduserstoproject(users, project, keystone):
             logging.error("Problem occurred during granting role on project for " + usr["name"] + "\n" + str(e))
 
 
-def addgroupstoproject(groups, project, keystone):
+def add_groups_to_project(groups, project, keystone):
     for grp in groups:
         try:
             role = keystone.roles.list(name=grp["role"])[0]
@@ -182,7 +182,7 @@ def addgroupstoproject(groups, project, keystone):
             logging.error("Problem occurred during granting role on project for " + grp["name"] + "\n" + str(e))
 
 
-def shareimages(images, project, glance):
+def share_images(images, project, glance):
     for img in images:
         try:
             glance.image_members.create(img, project.__getattribute__("id"))
@@ -192,7 +192,7 @@ def shareimages(images, project, glance):
             logging.error("Problem occurred during image sharing on project for image: " + img + "\n" + str(e))
 
 
-def createnetworks(networks, project, neutron, vncconf):
+def create_networks(networks, project, neutron, vncconf):
     vnc = None
     if vncexists:
         if vncconf:
@@ -203,7 +203,12 @@ def createnetworks(networks, project, neutron, vncconf):
                                      auth_host=vncconf["auth_host"],
                                      username=vncconf["username"],
                                      password=vncconf["password"],
-                                     tenant_name=vncconf["tenant_name"])
+                                     tenant_name=vncconf["tenant_name"],
+                                     auth_port=vncconf.get("auth_port", "5000"),
+                                     auth_protocol=vncconf.get("auth_protocol", "https"),
+                                     auth_url=vncconf.get("auth_url", "/v3/auth/tokens"),
+                                     auth_type=vncconf.get("auth_type", "keystone"),
+                                     ksinsecure=vncconf.get("ksinsecure", True))
                 logging.info("vnc_api initialized.")
             except Exception as e:
                 logging.error("Problem occurred during vnc_api initialization \n" + str(e))
@@ -232,10 +237,10 @@ def createnetworks(networks, project, neutron, vncconf):
             logging.error("Problem occurred during creating network on project \n" + str(e))
         if vncexists:
             if net.rt_asn and (net.rt or net.import_rt or net.export_rt):
-                processroutetarget(net, nt, vnc)
+                process_route_target(net, nt, vnc)
 
 
-def creatertlist(rts, asn):
+def create_rt_list(rts, asn):
     rtl = vnc_api.RouteTargetList()
     for rt in rts:
         tar = "target:" + str(asn) + ":" + str(rt)
@@ -243,7 +248,7 @@ def creatertlist(rts, asn):
     return rtl
 
 
-def processroutetarget(net, nt, vnc):
+def process_route_target(net, nt, vnc):
     if isinstance(vnc, vnc_api.VncApi):
         try:
             # vnc = vnc_api.VncApi(api_server_host=vncconf["api_host"],
@@ -253,30 +258,30 @@ def processroutetarget(net, nt, vnc):
             #                      tenant_name=vncconf["tenant_name"])
             if net.rt_asn:
                 if net.rt:
-                    rtl = creatertlist(net.rt, net.rt_asn)
+                    rtl = create_rt_list(net.rt, net.rt_asn)
                     network = vnc.virtual_network_read(id=nt["network"]["id"])
                     network.set_route_target_list(rtl)
                     vnc.virtual_network_update(network)
-                    logging.info("Network " + net.name + " update with rts." + str(rtl))
+                    logging.info("Network " + net.name + " updated with rts." + str(rtl))
                 if net.import_rt:
-                    rtl = creatertlist(net.import_rt, net.rt_asn)
+                    rtl = create_rt_list(net.import_rt, net.rt_asn)
                     network = vnc.virtual_network_read(id=nt["network"]["id"])
                     network.set_import_route_target_list(rtl)
                     vnc.virtual_network_update(network)
-                    logging.info("Network " + net.name + " update with import rts." + str(rtl))
+                    logging.info("Network " + net.name + " updated with import rts." + str(rtl))
                 if net.export_rt:
-                    rtl = creatertlist(net.export_rt, net.rt_asn)
+                    rtl = create_rt_list(net.export_rt, net.rt_asn)
                     network = vnc.virtual_network_read(id=nt["network"]["id"])
                     network.set_export_route_target_list(rtl)
                     vnc.virtual_network_update(network)
-                    logging.info("Network " + net.name + " update with export rts." + str(rtl))
+                    logging.info("Network " + net.name + " updated with export rts." + str(rtl))
         except KeyError as e:
             logging.error("Problem occurred during route targets assigning. KeyError: \n" + str(e))
         except Exception as e:
             logging.error("Problem occurred during route targets assigning \n" + str(e))
 
 
-def setquotas(sess, project, quotas):
+def set_quotas(sess, project, quotas):
     try:
         neutron = neutronClient.Client(session=sess)
         fip = {'floatingip': '0'}
@@ -313,7 +318,7 @@ def setquotas(sess, project, quotas):
         logging.error("Problem occurred during setting quotas \n" + str(e))
 
 
-def generatevars(path):
+def generate_vars(path):
     v = """project_name: DemoProject
 project_description: Demo project description
 project_domain: default
@@ -362,9 +367,14 @@ osconf:
 vncconf:
   api_host: 192.168.8.15
   auth_host: 192.168.8.11
+  auth_port: 5000
+  auth_protocol: https
+  auth_url: /v3/auth/tokens
+  auth_type: keystone
   username: contrailadmin
   password: supersecret
   tenant_name: admin
+  ksinsecure: True
 """
     with open(path, 'w') as f:
         f.write(v)

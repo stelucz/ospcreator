@@ -7,7 +7,7 @@ def readme():
 
 
 setup(name='ospcreator',
-      version='0.2',
+      version='1.0',
       description='OpenStack project creator with OpenContrail route targets integration',
       url='http://github.com/stelucz/ospcreator',
       author='Lukas Stehlik',
@@ -25,4 +25,15 @@ setup(name='ospcreator',
           'python-glanceclient',
           'python-cinderclient',
           'python-novaclient',
+          'future',
+          'six',
+          'attrdict',
+          'bitarray',
+          'bottle',
+          'gevent',
+          'greenlet',
+          'kazoo',
+          'requests',
+          'simplejson',
+          'stevedore'
       ])
